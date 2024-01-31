@@ -16,7 +16,7 @@ const kafkaTopic = "obudata"
 func main() {
 	receiver, err := NewDataReceiver()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	defer receiver.prod.Close()
@@ -37,17 +37,26 @@ func (dr *DataReceiver) produceObuData(data types.OBUData) error {
 		return err
 	}
 	topic := kafkaTopic
-	if err = dr.prod.Produce(&kafka.Message{
+	err = dr.prod.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{
 			Topic:     &topic,
 			Partition: kafka.PartitionAny},
 		Value: b,
-	}, nil); err != nil {
-		return err
+	}, nil)
+
+	dr.prod.Flush(15 * 1000)
+	return err
+}
+
+func NewDataReceiver() (*DataReceiver, error) {
+	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": "localhost"})
+	if err != nil {
+		return nil, err
 	}
 
+	// watches for delivery reports from producer
 	go func() {
-		for e := range dr.prod.Events() {
+		for e := range p.Events() {
 			switch ev := e.(type) {
 			case *kafka.Message:
 				if ev.TopicPartition.Error != nil {
@@ -58,14 +67,6 @@ func (dr *DataReceiver) produceObuData(data types.OBUData) error {
 			}
 		}
 	}()
-	return nil
-}
-
-func NewDataReceiver() (*DataReceiver, error) {
-	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": "localhost"})
-	if err != nil {
-		return nil, err
-	}
 
 	return &DataReceiver{
 		msgch: make(chan types.OBUData, 128),
@@ -93,8 +94,9 @@ func (dr *DataReceiver) wsReceiveLoop() {
 		var data types.OBUData
 		if err := dr.conn.ReadJSON(&data); err != nil {
 			log.Println("read error:", err)
+			continue
 		}
-		// fmt.Printf("received OBU data from [%d]: <lat %.2f, lng %.2f>\n", data.OBUId, data.Lat, data.Lon)
+
 		if err := dr.produceObuData(data); err != nil {
 			log.Println("produce error:", err)
 		}

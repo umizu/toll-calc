@@ -1,3 +1,5 @@
+// simulates an OBU sending geolocation data to the server (the data_receiver)
+
 package main
 
 import (
