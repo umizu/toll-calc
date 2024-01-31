@@ -29,7 +29,7 @@ func genLatLon() (float64, float64) {
 }
 
 func main() {
-	obuIDS := generateOBUIDS(10)
+	obuIDS := generateOBUIDS(3)
 	conn, _, err := websocket.DefaultDialer.Dial(wsEndpoint, nil)
 	if err != nil {
 		log.Fatal(err)
