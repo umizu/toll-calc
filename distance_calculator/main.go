@@ -7,7 +7,9 @@ import (
 const kafkaTopic = "obu_data"
 
 func main() {
-	kafkaTransport, err := NewKafkaTransport(kafkaTopic)
+	calcService := NewCalculatorService()
+
+	kafkaTransport, err := NewKafkaTransport(kafkaTopic, calcService)
 	if err != nil {
 		log.Fatal(err)
 	}

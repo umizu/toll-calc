@@ -1,17 +1,20 @@
 package main
 
 import (
+	"encoding/json"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/sirupsen/logrus"
+	"github.com/umizu/tollcalc/types"
 )
 
 type KafkaTransport struct {
-	consumer  *kafka.Consumer
-	isRunning bool
+	consumer    *kafka.Consumer
+	isRunning   bool
+	calcService CalculatorServicer
 }
 
-func NewKafkaTransport(topic string) (*KafkaTransport, error) {
+func NewKafkaTransport(topic string, svc CalculatorServicer) (*KafkaTransport, error) {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers": "localhost",
 		"group.id":          "myGroup",
@@ -23,7 +26,8 @@ func NewKafkaTransport(topic string) (*KafkaTransport, error) {
 
 	c.SubscribeTopics([]string{topic}, nil)
 	return &KafkaTransport{
-		consumer: c,
+		consumer:    c,
+		calcService: svc,
 	}, nil
 }
 
@@ -36,16 +40,25 @@ func (c *KafkaTransport) Start() {
 func (c *KafkaTransport) readMessageLoop() {
 	for c.isRunning {
 		msg, err := c.consumer.ReadMessage(-1)
-		if err == nil {
-			logrus.Infof("received message: %s", string(msg.Value))
-		} else if !err.(kafka.Error).IsTimeout() {
-			// timeout is not an error, just means no message was received
+		if err != nil && !err.(kafka.Error).IsTimeout() {
+			// timeout is not an error. it just means no message was received
 			logrus.Errorf("consume error: %s", err)
 			continue
 		}
-		// var obuData types.OBUData
-		// json.Unmarshal(msg.Value, &obuData)
-		// logrus.Infof("received message: %v", obuData)
+
+		var obuData types.OBUData
+		if err := json.Unmarshal(msg.Value, &obuData); err != nil {
+			logrus.Errorf("json deserialization error: %s", err)
+			continue
+		}
+
+		distance, err := c.calcService.CalculateDistance(obuData)
+		if err != nil {
+			logrus.Errorf("error calculating distance: %s", err)
+			continue
+		}
+
+		logrus.Infof("distance: %.2f", distance)
 	}
 
 }
