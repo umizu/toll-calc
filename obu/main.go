@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	sendInterval = time.Second
+	sendInterval = time.Second * 5
 	wsEndpoint   = "ws://127.0.0.1:30000/ws"
 )
 
@@ -29,7 +29,7 @@ func genLatLon() (float64, float64) {
 }
 
 func main() {
-	obuIDS := generateOBUIDS(1)
+	obuIDS := generateOBUIDS(5)
 	conn, _, err := websocket.DefaultDialer.Dial(wsEndpoint, nil)
 	if err != nil {
 		log.Fatal(err)

@@ -57,8 +57,7 @@ func (c *KafkaTransport) readMessageLoop() {
 			logrus.Errorf("error calculating distance: %s", err)
 			continue
 		}
-
-		logrus.Infof("distance: %.2f", distance)
+		_ = distance
 	}
 
 }
